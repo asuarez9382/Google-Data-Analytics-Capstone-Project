@@ -1,0 +1,331 @@
+---
+title: "Bellabeat Fitness Analysis"
+author: "Adrian Suarez"
+date: "2023-01-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br>
+<br>
+
+### **About the Company**
+
+Bellabeat is a high-tech company that manufactures health-focused smart products. They use beautifully designed technology to inform and inspire women around
+the world by collecting data on activity, sleep, stress, and reproductive health. This has allowed Bellabeat to empower women with
+knowledge about their own health and habits. Since it was founded in 2013, Bellabeat has grown rapidly and quickly positioned itself as a tech-driven wellness company for women.
+
+<br>
+
+### **Business Task**
+
+Analyze smart device usage data in order to gain insight into how consumers use non-Bellabeat smart devices. This insight will be used to help guide Bellabeat's marketing strategy for their products.
+
+<br>
+
+### **Loading Packages**
+
+<br>
+
+```{r eval=FALSE}
+install.packages('dplyr')
+install.packages('tidyverse')
+install.packages('ggplot2')
+install.packages("stringr")
+```
+
+```{r load-packages, include=FALSE}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(data.table)
+library(magrittr)
+library(stringr)
+```
+
+<br>
+
+### **Importing Datasets**
+
+<br>
+
+```{r}
+daily_activity <- read.csv("Fitbase_Data/dailyActivity_merged.csv")
+sleep_day <- read.csv("Fitbase_Data/sleepDay_merged.csv")
+weight_Info <- read.csv("Fitbase_Data/weightLogInfo_merged.csv")
+```
+
+```{r }
+head(daily_activity)
+```
+
+<br>
+
+### **Merging Datasets**
+
+<br>
+
+Combines the sleep and daily activity datasets.
+
+```{r}
+combined_data <- merge(sleep_day, daily_activity, by="Id")
+```
+
+<br>
+
+### **Data Cleaning and Data Prepping**
+
+<br>
+
+#### **Prepping Data for the Average Steps Taken graph**
+
+<br>
+
+Groups the daily activity dataset by User Id, and then calculates the mean of the total steps taken for each user. 
+
+```{r}
+totals_steps <- daily_activity %>% group_by(Id) %>% 
+    summarise(average_steps = mean(TotalSteps))
+head(totals_steps)
+```
+
+<br>
+
+Arranges the average steps column in descending order, changes the datatype of the user Id to a character type and then preps the dataset for being plotted. 
+
+<br>
+
+```{r}
+totals_steps <- totals_steps[order(-totals_steps$average_steps), ]
+totals_steps$Id <- totals_steps$Id %>% as.character()
+totals_steps$Id<-factor(totals_steps$Id, levels = totals_steps$Id)
+```
+
+<br>
+
+#### **Prepping Data for the Average Distance graph** 
+
+<br>
+
+Groups the combined dataset by User Id and then sums the total number of minutes for each user by activity category.
+
+<br>
+
+```{r}
+totals_Active <- combined_data %>% group_by(Id) %>% 
+    summarise(total_VeryActiveMinutes = sum(VeryActiveMinutes), 
+              total_FairlyActiveMinutes = sum(FairlyActiveMinutes),
+              total_LightlyActiveMinutes = sum(LightlyActiveMinutes),
+              total_SedentaryMinutes = sum(SedentaryMinutes))
+head(totals_Active)
+```
+
+<br>
+
+Creates a temporary dataset with just the distances.
+
+<br>
+
+```{r}
+temp_distance_df <- combined_data %>% select(VeryActiveDistance, ModeratelyActiveDistance, LightActiveDistance, SedentaryActiveDistance)
+```
+
+<br>
+
+Using the previously created dataset, calculates the average distances for each category.
+
+<br>
+
+```{r}
+avg_very_distance = mean(temp_distance_df[["VeryActiveDistance"]])
+avg_moderate_distance = mean(temp_distance_df[["ModeratelyActiveDistance"]])
+avg_light_distance = mean(temp_distance_df[["LightActiveDistance"]])
+avg_sedentary_distance = mean(temp_distance_df[["SedentaryActiveDistance"]])
+avg_distances <- round(c(avg_sedentary_distance,avg_light_distance,avg_moderate_distance,avg_very_distance),2)
+```
+
+<br>
+
+Creates an average distance dataframe of each category.
+
+<br>
+
+```{r}
+categories_distance <- c('Avg Sedentary Active Distance', 
+                  'Avg Lightly Active Distance',
+                 'Avg Moderately Active Distance',
+                 'Avg Very Active Hours')
+df_averages_distance <- data.frame(categories_distance, avg_distances)
+df_averages_distance
+```
+
+<br>
+<br>
+
+#### **Prepping Data for the Average Active Hours graph** 
+
+<br>
+
+Selects the total minutes from each category in the totals dataframe. Then takes the average of each and converting minutes to hours. Lastly creates a dataframe of the average active hours of all users for each category. 
+
+<br>
+
+```{r}
+temp_df <- totals_Active %>% select(total_VeryActiveMinutes, total_FairlyActiveMinutes, total_LightlyActiveMinutes, total_SedentaryMinutes)
+```
+```{r}
+avg_very_active = mean(temp_df[["total_VeryActiveMinutes"]])
+avg_fairly_active = mean(temp_df[["total_FairlyActiveMinutes"]])
+avg_Lightly_active = mean(temp_df[["total_LightlyActiveMinutes"]])
+avg_Sedentary_active = mean(temp_df[["total_SedentaryMinutes"]])
+avg_minutes <- c(avg_Sedentary_active,avg_Lightly_active,avg_fairly_active,avg_very_active)
+avg_hours <- round(avg_minutes/60,2)
+```
+```{r}
+categories <- c('Avg Sedentary Hours', 
+                  'Avg Lightly Active Hours',
+                 'Avg Fairly Active Hours',
+                 'Avg Very Active Hours')
+df_averages <- data.frame(categories, avg_hours)
+df_averages
+```
+
+#### **Prepping Data for the Weight Info Graph**
+
+<br>
+
+Separates the Date column in the weight info dataframe to two columns, then converts the datatype of the Date column to datetime, and converts the datatype of the Id column to a character type.
+
+<br>
+
+```{r }
+weight_Info %>%
+  separate(Date, c("Date", "Time"), " ") %>% head()
+weight_Info$Date <- as.POSIXct(weight_Info$Date, format="%m/%d/%Y")
+head(weight_Info)
+```
+```{r}
+weight_Info$Id <- weight_Info$Id %>% as.character()
+```
+
+<br>
+
+Groups the combined dataset by User Id, and then creates a dataframe called Average Calories that takes the average of the calories burned by each user. 
+
+```{r}
+Average_calories_df <- combined_data %>% group_by(Id) %>% 
+    summarise(Average_calories = round(mean(Calories),2))
+Average_calories_df$Id <- Average_calories_df$Id %>% as.character()
+Average_calories_df <- Average_calories_df[order(-Average_calories_df$Average_calories), ]
+Average_calories_df$Id<-factor(Average_calories_df$Id, levels = Average_calories_df$Id)
+head(Average_calories_df)
+```
+
+
+### **Visualizations**
+
+<br>
+<br>
+
+```{r}
+ggplot(data=totals_steps, aes(x=Id, y=average_steps)) + geom_bar(stat="identity", fill="blue") +
+labs(titles="Average Steps Taken By All Users",x="Users",y="Average Steps") +
+theme(plot.title = element_text(hjust=0.5, size=20, face="bold"), 
+      axis.title.x = element_text(vjust=-1,size=14, face="bold"),
+      axis.title.y = element_text(size=14, face="bold"),
+      axis.text.x = element_text(vjust=0.5,face="bold", size=10, angle=90),
+      axis.text.y = element_text(face="bold", size=10))
+```
+
+All 33 participants kept track of their steps taken, showing that this would be a good feature for a fitness app to have. 
+
+<br>
+<br>
+<br>
+
+```{r}
+ggplot(data=df_averages_distance, aes(x=categories_distance, y=avg_distances)) + geom_bar(stat="identity", fill="blue") +
+labs(titles="Average Active Distance of All Users",x="Activity Categories",y="Average Distance (mi)") +
+theme(plot.title = element_text(hjust=0.5, size=20, face="bold"), 
+      axis.title.x = element_text(vjust=-1,size=14, face="bold"),
+      axis.title.y = element_text(size=14, face="bold"),
+      axis.text.x = element_text(vjust=0.5,face="bold", size=10, angle=90),
+      axis.text.y = element_text(face="bold", size=10))
+```
+
+
+The highest distances tracked by users were in the Lightly Active category, showing that the majority of people are using the app for lightly active activities. 
+<br>
+<br>
+<br>
+
+```{r}
+ggplot(data=df_averages, aes(x=categories, y=avg_hours)) + geom_bar(stat="identity", fill="blue") +
+labs(titles="Average Active Hours of All Users",x="Activity Categories",y="Average Hours") +
+theme(plot.title = element_text(hjust=0.5, size=20, face="bold"), 
+      axis.title.x = element_text(vjust=-1,size=14, face="bold"),
+      axis.title.y = element_text(size=14, face="bold"),
+      axis.text.x = element_text(face="bold", size=10, angle=90),
+      axis.text.y = element_text(face="bold", size=10))
+```
+
+The majority of active hours logged by users are in the Sedentary category followed by the Lightly Active category. This shows that the majority of users are using the app for calmer activities, not necessarily for vigorous exercise.
+
+<br>
+<br>
+<br>
+
+```{r}
+ggplot(data=weight_Info, aes(x=Date, y=WeightPounds, color=Id)) + geom_point(size=3) + geom_line(linewidth=1) +
+labs(titles="Weight of Users Over Time",x="Date",y="Weight (lbs)") +
+theme(plot.title = element_text(hjust=0.5, size=20, face="bold"), 
+      axis.title.x = element_text(size=14, face="bold"),
+      axis.title.y = element_text(size=14, face="bold"),
+      axis.text.x = element_text(face="bold", size=10),
+      axis.text.y = element_text(face="bold", size=10))
+```
+
+Only 8 of the 33 possible participants chose to keep track of their weight, and the weight of these participants stay pretty constant. This shows that people aren't using this app for weight-loss.
+
+<br>
+<br>
+<br>
+
+```{r}
+ggplot(data=Average_calories_df, aes(x=Id, y=Average_calories)) + geom_bar(stat="identity", fill="blue") +
+labs(titles="Average Calories Burned per User",x="Users",y="Calories Burned") +
+theme(plot.title = element_text(hjust=0.5, size=20, face="bold"), 
+      axis.title.x = element_text(size=14, face="bold"),
+      axis.title.y = element_text(size=14, face="bold"),
+      axis.text.x = element_text(face="bold", size=10, angle=90),
+      axis.text.y = element_text(face="bold", size=10))
+```
+
+Out of the 33 possible participants 24 decided to keep track of calories burned. This would be a good feature to have in a fitness app. 
+
+<br>
+<br>
+<br>
+
+#### **Conclusion and Business Recommendations**
+
+<br>
+
+Through collecting data on activity, sleep, and reproductive health Bellabeat has been able to empower women with knowledge about their own health. This company has been growing rapidly and is positioning itself as a top tech wellness company for women. Through analyzing the FitBit tracker data I have found some insights that can be used to help Bellabeat's marketing strategy:
+
+<br>
+
+The majority of users who are using the app are using it for **sedentary and light activity purposes**. Therefore focusing on products, for example that **count the number of steps taken a day** or that **track sleeping habits** would beneficial the company. 
+
+For example, focusing specifically on **the Leaf**, one of Bellabeats' products that is a wellness tracker that can be worn as a bracelet, necklace, or clip. **This product can be leveraged to track the number of steps taken throughout the day as well as the number of hours slept a night.** This would be beneficial since the majority of users who are using other fitness apps are looking to track these features. 
+
+Although a lot of the users are tracking number of calories burned a day, this data is not being used as a way to lose weight. This is because only 6 out of the total 33 participants chose to track their weight, furthermore their respective weights remained mostly constant.
+
+<br>
+<br>
+Thank you for taking the time to go through my markdown regarding using Fitbit data to  make recommendations for the Bellabeat marketing strategy. 
+
+<br>
